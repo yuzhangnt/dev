@@ -3,35 +3,32 @@
 #include <linux/moduleparam.h>
 #include <linux/kernel.h>
 
-static int myint = 222;
-static short int myshort = 111;
-static long int mylog = 333;
-static char * mystring = "My string";
+#include <linux/fs.h>
 
-module_param(myint, int, 0400);
-MODULE_PARM_DESC(myint, "An integer");
-
-module_param(myshort, short, 0400);
-MODULE_PARM_DESC(myshort, "A short integer");
-
-module_param(mylog, long, 0000);
-MODULE_PARM_DESC(mylog, "A long integer");
-
-module_param(mystring, charp, 0000);
-MODULE_PARM_DESC(mystring, "A character string");
+static int mymajor = 245;
+static int myminor = 0;
+static int number_of_devices = 1;
 
 static int hello_init(void){
+	int ret;
+	dev_t  devnu = 0;
 
-	printk("Hello Linux device!\n");
-	printk("### myint  = %d\n", myint);
-	printk("### myshort = %hd\n", myshort);
-	printk("### mylong = %ld\n", mylog);
-	printk("### mystring = %s\n", mystring);
+	devnu = MKDEV(mymajor, myminor);
+	ret = register_chrdev_region(devnu, number_of_devices, "hello");
+	if(ret < 0){
+		printk("Hello: can't get major number %d\n", mymajor);
+		return ret;
+	}
+
+	printk("Registered character driver \'hello\'!\n");
 	return 0;
 }
 
 static void hello_exit(void){
-	printk("Bye Linux device!\n");
+	dev_t devnu = 0;
+	devnu = MKDEV(mymajor, myminor);
+	unregister_chrdev_region(devnu, number_of_devices);
+	printk("Bye driver \'hello\'!\n");
 
 }
 
