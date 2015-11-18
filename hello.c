@@ -2,12 +2,29 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/kernel.h>
+#include <linux/init.h>
 
 #include <linux/fs.h>
 
 static int mymajor = 245;
 static int myminor = 0;
 static int number_of_devices = 1;
+
+static struct cdev cdev;
+
+static int hello_open(struct inode *inode, struct file *file){
+	printk("Hello, the device opened\n");
+	return 0;
+}
+
+static struct file_operations fops={
+	.owner = THIS_MODULE,
+	.open  = hello_open,
+};
+
+static void char_reg_cdev(void){
+	printk("Hello init function!\n");
+}
 
 static int hello_init(void){
 	int ret;
@@ -20,13 +37,29 @@ static int hello_init(void){
 		return ret;
 	}
 
+	cdev_init(&cdev, &fops);
+	cdev.owner = THIS_MODULE;
+
+	ret = cdev_add(&cdev, devnu, 1);
+	if(ret){
+		printk("Error %d adding cdev add!l", ret);
+		goto err1;
+	}
+
+	char_reg_cdev();
+
 	printk("Registered character driver \'hello\'!\n");
 	return 0;
+err1:
+	unregister_chrdev_region(devnu, number_of_devices);
+	return ret;
+
 }
 
 static void hello_exit(void){
 	dev_t devnu = 0;
 	devnu = MKDEV(mymajor, myminor);
+	cdev_del(&cdev);
 	unregister_chrdev_region(devnu, number_of_devices);
 	printk("Bye driver \'hello\'!\n");
 
