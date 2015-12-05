@@ -34,10 +34,24 @@ static ssize_t hello_read(struct file *filp, char __user *buff, size_t count, lo
 	return ret;
 }
 
+static ssize_t hello_write(struct file *filp, const char __user * buff, size_t count, loff_t *offp){
+	ssize_t ret  = 0;
+	if(count > MAX){
+		ret = -EFAULT;
+	}else{
+		memset(data, 0, MAX);
+		copy_from_user(data, buff, count);
+		data[count] = '\0';
+		ret = count;
+	}
+	return count;
+}
+
 static struct file_operations fops={
 	.owner = THIS_MODULE,
 	.open  = hello_open,
 	.read  = hello_read,
+	.write = hello_write,
 };
 
 static void char_reg_cdev(void){
