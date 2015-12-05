@@ -4,7 +4,8 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <asm/uaccess.h>
-
+#include <linux/ioctl.h>
+#include "common.h"
 #include <linux/fs.h>
 
 #define MAX 127
@@ -47,11 +48,29 @@ static ssize_t hello_write(struct file *filp, const char __user * buff, size_t c
 	return count;
 }
 
+long hello_ioctl(struct file *filp, unsigned int cmd, unsigned long arg){
+	long  ret = 0;
+	switch(cmd){
+		case ONE:
+			printk("The command is one\n");
+			break;
+		case TWO:
+			printk("The command is two\n");
+			break;
+
+		default:
+			ret = -EINVAL;
+	}
+
+	return ret;
+}
+
 static struct file_operations fops={
 	.owner = THIS_MODULE,
 	.open  = hello_open,
 	.read  = hello_read,
 	.write = hello_write,
+	.unlocked_ioctl = hello_ioctl,
 };
 
 static void char_reg_cdev(void){

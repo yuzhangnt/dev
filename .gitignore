@@ -1,4 +1,7 @@
 *.o
+*.out
+app
+hello
 *~
 core
 .depend
