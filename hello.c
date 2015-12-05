@@ -3,8 +3,11 @@
 #include <linux/moduleparam.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <asm/uaccess.h>
 
 #include <linux/fs.h>
+
+#define MAX 127
 
 static int mymajor = 245;
 static int myminor = 0;
@@ -12,14 +15,32 @@ static int number_of_devices = 1;
 
 static struct cdev cdev;
 
-static int hello_open(struct inode *inode, struct file *file){
+static char data[MAX - 1] = "The device name is hello.\n";
+
+static int hello_open(struct inode *inode, struct file *filp){
 	printk("Hello, the device opened\n");
 	return 0;
+}
+
+static ssize_t hello_read(struct file *filp, char *buff, size_t count, loff_t *offp){
+	int ret;
+
+	if(count > MAX)
+		count = MAX;
+
+	if(copy_to_user(buff, data, sizeof(data))){
+		ret = -EFAULT;
+	}else{
+		ret = count;
+	}
+
+	return ret;
 }
 
 static struct file_operations fops={
 	.owner = THIS_MODULE,
 	.open  = hello_open,
+	.read  = hello_read,
 };
 
 static void char_reg_cdev(void){
