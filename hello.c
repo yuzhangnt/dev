@@ -15,25 +15,22 @@ static int number_of_devices = 1;
 
 static struct cdev cdev;
 
-static char data[MAX - 1] = "The device name is hello.\n";
+static char data[MAX + 1] = "The device name is hello.\n";
 
 static int hello_open(struct inode *inode, struct file *filp){
 	printk("Hello, the device opened\n");
 	return 0;
 }
 
-static ssize_t hello_read(struct file *filp, char *buff, size_t count, loff_t *offp){
-	int ret;
-
-	if(count > MAX)
-		count = MAX;
-
-	if(copy_to_user(buff, data, sizeof(data))){
-		ret = -EFAULT;
-	}else{
+static ssize_t hello_read(struct file *filp, char __user *buff, size_t count, loff_t *offp){
+	ssize_t ret = 0;
+	if(*offp == 0){
+		if(count > MAX)
+			count = MAX;
+		copy_to_user(buff, data, count);
 		ret = count;
 	}
-
+	*offp = ret;
 	return ret;
 }
 
@@ -91,4 +88,3 @@ MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("The hello example");
 module_init(hello_init);
 module_exit(hello_exit);
-
