@@ -15,14 +15,33 @@ static int mymajor = 245;
 static int myminor = 0;
 static int number_of_devices = 1;
 
-static struct cdev cdev;
-static struct class * hello_class;
-static struct device * hello_device;
-
-static char data[MAX + 1] = "The device name is hello.\n";
+static struct hdevice{
+	char data[MAX + 1];
+	int lock_num;
+	spinlock_t lock;
+	struct cdev cdev;
+	struct class * hello_class;
+	struct device * hello_device;
+}hdev;
 
 static int hello_open(struct inode *inode, struct file *filp){
+	spin_lock(&hdev.lock);
+	if(hdev.lock_num){
+		spin_unlock(&hdev.lock);
+		return -EBUSY;
+	}
+	hdev.lock_num++;
+	spin_unlock(&hdev.lock);
 	printk("Hello, the device opened\n");
+	return 0;
+}
+
+static int hello_release(struct inode *inode, struct file * filp){
+	spin_lock(&hdev.lock);
+	hdev.lock_num--;
+	spin_unlock(&hdev.lock);
+
+	printk("Hello, the device closed\n");
 	return 0;
 }
 
@@ -31,7 +50,7 @@ static ssize_t hello_read(struct file *filp, char __user *buff, size_t count, lo
 	if(*offp == 0){
 		if(count > MAX)
 			count = MAX;
-		copy_to_user(buff, data, count);
+		copy_to_user(buff, hdev.data, count);
 		ret = count;
 	}
 	*offp = ret;
@@ -43,9 +62,9 @@ static ssize_t hello_write(struct file *filp, const char __user * buff, size_t c
 	if(count > MAX){
 		ret = -EFAULT;
 	}else{
-		memset(data, 0, MAX);
-		copy_from_user(data, buff, count);
-		data[count] = '\0';
+		memset(hdev.data, 0, MAX);
+		copy_from_user(hdev.data, buff, count);
+		hdev.data[count] = '\0';
 		ret = count;
 	}
 	return count;
@@ -72,6 +91,7 @@ long hello_ioctl(struct file *filp, unsigned int cmd, unsigned long arg){
 static struct file_operations fops={
 	.owner = THIS_MODULE,
 	.open  = hello_open,
+	.release = hello_release,
 	.read  = hello_read,
 	.write = hello_write,
 	.unlocked_ioctl = hello_ioctl,
@@ -79,6 +99,9 @@ static struct file_operations fops={
 
 static void char_reg_cdev(void){
 	printk("Hello init function!\n");
+	spin_lock_init(&hdev.lock);
+	strcpy(hdev.data, "Welcome to your\n");
+	hdev.lock_num = 0;
 }
 
 static int hello_init(void){
@@ -92,34 +115,36 @@ static int hello_init(void){
 		return ret;
 	}
 
-	cdev_init(&cdev, &fops);
-	cdev.owner = THIS_MODULE;
+	cdev_init(&hdev.cdev, &fops);
+	hdev.cdev.owner = THIS_MODULE;
 
-	ret = cdev_add(&cdev, devnu, 1);
+	ret = cdev_add(&hdev.cdev, devnu, 1);
 	if(ret){
 		printk("Error %d adding cdev add!l", ret);
 		goto err1;
 	}
 
-	char_reg_cdev();
-
-	hello_class = class_create(THIS_MODULE, "hello");
-	if(IS_ERR(hello_class)){
+	hdev.hello_class = class_create(THIS_MODULE, "hello");
+	if(IS_ERR(hdev.hello_class)){
 		printk("Err: failed in createing class!\n");
 		goto err2;
 	}
-	hello_device = device_create(hello_class, NULL, devnu, NULL, "cool");
-	if(IS_ERR(hello_device)){
+
+	hdev.hello_device = device_create(hdev.hello_class, NULL, devnu, NULL, "cool");
+	if(IS_ERR(hdev.hello_device)){
 		printk("Err: failed in createing device!");
 		goto err3;
 	}
+
+	char_reg_cdev();
+
 	printk("Registered character driver \'hello\'!\n");
 	return 0;
 
 err3:
-	class_destroy(hello_class);
+	class_destroy(hdev.hello_class);
 err2:
-	cdev_del(&cdev);
+	cdev_del(&hdev.cdev);
 err1:
 	unregister_chrdev_region(devnu, number_of_devices);
 	return ret;
@@ -129,9 +154,9 @@ err1:
 static void hello_exit(void){
 	dev_t devnu = 0;
 	devnu = MKDEV(mymajor, myminor);
-	device_destroy(hello_class, devnu);
-	class_destroy(hello_class);
-	cdev_del(&cdev);
+	device_destroy(hdev.hello_class, devnu);
+	class_destroy(hdev.hello_class);
+	cdev_del(&hdev.cdev);
 	unregister_chrdev_region(devnu, number_of_devices);
 	printk("Bye driver \'hello\'!\n");
 

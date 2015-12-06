@@ -13,13 +13,14 @@ void myread(int fd){
 }
 
 void mywrite(int fd){
-    char data[SIZE + 1] = "abcdefg";
+    char data[SIZE + 1] = "abcdefg\n";
     write(fd, data, strlen(data));
 }
 
 
 int main(int argv, char * argc[]){
     int fd;
+	char ch;
     fd = open ("/dev/cool", O_RDWR);
     if(fd < 0){
         printf("Open /deve/hello error!\n");
@@ -29,10 +30,12 @@ int main(int argv, char * argc[]){
     mywrite(fd);
     myread(fd);
 
+
     ioctl(fd, ONE);
     ioctl(fd, TWO);
     ioctl(fd, TRE);
-
+	printf("Please enter any key exit ...\n");
+	ch = getchar();
     close(fd);
 
     return 0;
