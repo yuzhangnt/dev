@@ -20,7 +20,7 @@ void mywrite(int fd){
 
 int main(int argv, char * argc[]){
     int fd;
-    fd = open ("/dev/hello", O_RDWR);
+    fd = open ("/dev/cool", O_RDWR);
     if(fd < 0){
         printf("Open /deve/hello error!\n");
         return fd;

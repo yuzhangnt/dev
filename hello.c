@@ -7,6 +7,7 @@
 #include <linux/ioctl.h>
 #include "common.h"
 #include <linux/fs.h>
+#include <linux/device.h>
 
 #define MAX 127
 
@@ -15,6 +16,8 @@ static int myminor = 0;
 static int number_of_devices = 1;
 
 static struct cdev cdev;
+static struct class * hello_class;
+static struct device * hello_device;
 
 static char data[MAX + 1] = "The device name is hello.\n";
 
@@ -63,6 +66,7 @@ long hello_ioctl(struct file *filp, unsigned int cmd, unsigned long arg){
 	}
 
 	return ret;
+
 }
 
 static struct file_operations fops={
@@ -99,8 +103,23 @@ static int hello_init(void){
 
 	char_reg_cdev();
 
+	hello_class = class_create(THIS_MODULE, "hello");
+	if(IS_ERR(hello_class)){
+		printk("Err: failed in createing class!\n");
+		goto err2;
+	}
+	hello_device = device_create(hello_class, NULL, devnu, NULL, "cool");
+	if(IS_ERR(hello_device)){
+		printk("Err: failed in createing device!");
+		goto err3;
+	}
 	printk("Registered character driver \'hello\'!\n");
 	return 0;
+
+err3:
+	class_destroy(hello_class);
+err2:
+	cdev_del(&cdev);
 err1:
 	unregister_chrdev_region(devnu, number_of_devices);
 	return ret;
@@ -110,6 +129,8 @@ err1:
 static void hello_exit(void){
 	dev_t devnu = 0;
 	devnu = MKDEV(mymajor, myminor);
+	device_destroy(hello_class, devnu);
+	class_destroy(hello_class);
 	cdev_del(&cdev);
 	unregister_chrdev_region(devnu, number_of_devices);
 	printk("Bye driver \'hello\'!\n");
